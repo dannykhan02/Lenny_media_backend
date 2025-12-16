@@ -4,7 +4,7 @@ __pycache__/
 
 # Virtual env
 .env/
-venv/
+.venv/
 .env
 
 # Secrets
