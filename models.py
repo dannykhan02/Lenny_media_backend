@@ -3,7 +3,6 @@ from sqlalchemy import Text, String, DECIMAL, Integer, Boolean, Date, Time, JSON
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 import enum
-import uuid
 
 # Initialize SQLAlchemy
 db = SQLAlchemy()
@@ -64,7 +63,7 @@ class EmailLogStatus(enum.Enum):
 class User(db.Model):
     __tablename__ = 'users'
 
-    id = db.Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = db.Column(Integer, primary_key=True, autoincrement=True)
     email = db.Column(db.String(255), nullable=False, unique=True)
     password = db.Column(db.String(255), nullable=False)
     full_name = db.Column(db.String(255), nullable=False)
@@ -117,7 +116,7 @@ class User(db.Model):
 class Booking(db.Model):
     __tablename__ = 'bookings'
 
-    id = db.Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = db.Column(Integer, primary_key=True, autoincrement=True)
     
     # Client Information
     client_name = db.Column(db.String(255), nullable=False)
@@ -134,7 +133,7 @@ class Booking(db.Model):
     
     # Management
     status = db.Column(db.Enum(BookingStatus), nullable=False, default=BookingStatus.PENDING)
-    assigned_to = db.Column(String(36), db.ForeignKey('users.id'), nullable=True)
+    assigned_to = db.Column(Integer, db.ForeignKey('users.id'), nullable=True)
     internal_notes = db.Column(db.Text, nullable=True)
     
     # Timestamps
@@ -171,7 +170,7 @@ class Booking(db.Model):
 class QuoteRequest(db.Model):
     __tablename__ = 'quote_requests'
 
-    id = db.Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = db.Column(Integer, primary_key=True, autoincrement=True)
     
     # Client Information
     client_name = db.Column(db.String(255), nullable=False)
@@ -179,7 +178,7 @@ class QuoteRequest(db.Model):
     client_phone = db.Column(db.String(20), nullable=False)
     company_name = db.Column(db.String(255), nullable=True)
     
-    # Quote Details - Changed from JSONB to JSON
+    # Quote Details
     selected_services = db.Column(JSON, nullable=False)  # Array of service IDs
     event_date = db.Column(db.Date, nullable=True)
     event_location = db.Column(db.Text, nullable=True)
@@ -195,7 +194,7 @@ class QuoteRequest(db.Model):
     valid_until = db.Column(db.Date, nullable=True)
     
     # Management
-    assigned_to = db.Column(String(36), db.ForeignKey('users.id'), nullable=True)
+    assigned_to = db.Column(Integer, db.ForeignKey('users.id'), nullable=True)
     
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
@@ -231,7 +230,7 @@ class QuoteRequest(db.Model):
 class Enrollment(db.Model):
     __tablename__ = 'enrollments'
 
-    id = db.Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = db.Column(Integer, primary_key=True, autoincrement=True)
     
     # Student Information
     full_name = db.Column(db.String(255), nullable=False)
@@ -247,7 +246,7 @@ class Enrollment(db.Model):
     
     # Enrollment
     preferred_intake = db.Column(db.String(50), nullable=True)
-    cohort_id = db.Column(String(36), db.ForeignKey('cohorts.id'), nullable=True)
+    cohort_id = db.Column(Integer, db.ForeignKey('cohorts.id'), nullable=True)
     status = db.Column(db.Enum(EnrollmentStatus), nullable=False, default=EnrollmentStatus.PENDING)
     
     # Payment
@@ -255,7 +254,7 @@ class Enrollment(db.Model):
     payment_reference = db.Column(db.String(100), nullable=True)
     
     # Management
-    reviewed_by = db.Column(String(36), db.ForeignKey('users.id'), nullable=True)
+    reviewed_by = db.Column(Integer, db.ForeignKey('users.id'), nullable=True)
     admin_notes = db.Column(db.Text, nullable=True)
     
     # Timestamps
@@ -292,7 +291,7 @@ class Enrollment(db.Model):
 class Service(db.Model):
     __tablename__ = 'services'
 
-    id = db.Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = db.Column(Integer, primary_key=True, autoincrement=True)
     category = db.Column(db.Enum(ServiceCategory), nullable=False)
     title = db.Column(db.String(255), nullable=False)
     slug = db.Column(db.String(255), unique=True, nullable=False)
@@ -303,7 +302,7 @@ class Service(db.Model):
     price_max = db.Column(DECIMAL(10, 2), nullable=True)
     price_display = db.Column(db.String(100), nullable=True)  # "Ksh 40,000 – 150,000"
     
-    # Features - Changed from JSONB to JSON
+    # Features
     features = db.Column(JSON, nullable=True)  # ["4K Video", "Drone Coverage", "Same-day Edit"]
     
     # Display
@@ -339,7 +338,7 @@ class Service(db.Model):
 class PortfolioItem(db.Model):
     __tablename__ = 'portfolio_items'
 
-    id = db.Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = db.Column(Integer, primary_key=True, autoincrement=True)
     title = db.Column(db.String(255), nullable=False)
     category = db.Column(db.Enum(PortfolioCategory), nullable=False)
     
@@ -360,10 +359,10 @@ class PortfolioItem(db.Model):
     
     # SEO
     alt_text = db.Column(db.Text, nullable=True)
-    tags = db.Column(JSON, nullable=True)  # ["outdoor", "golden-hour", "candid"] - Changed from JSONB to JSON
+    tags = db.Column(JSON, nullable=True)  # ["outdoor", "golden-hour", "candid"]
     
     # Management
-    instructor_id = db.Column(String(36), db.ForeignKey('users.id'), nullable=True)
+    instructor_id = db.Column(Integer, db.ForeignKey('users.id'), nullable=True)
     
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
@@ -397,7 +396,7 @@ class PortfolioItem(db.Model):
 class Cohort(db.Model):
     __tablename__ = 'cohorts'
 
-    id = db.Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = db.Column(Integer, primary_key=True, autoincrement=True)
     name = db.Column(db.String(255), nullable=False)  # "January 2025 Intake"
     start_date = db.Column(db.Date, nullable=False)
     end_date = db.Column(db.Date, nullable=False)
@@ -412,7 +411,7 @@ class Cohort(db.Model):
     
     # Details
     schedule_details = db.Column(db.Text, nullable=True)  # "Mon-Fri, 2pm-5pm"
-    instructor_id = db.Column(String(36), db.ForeignKey('users.id'), nullable=True)
+    instructor_id = db.Column(Integer, db.ForeignKey('users.id'), nullable=True)
     
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
@@ -443,7 +442,7 @@ class Cohort(db.Model):
 class BusinessInfo(db.Model):
     __tablename__ = 'business_info'
 
-    id = db.Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = db.Column(Integer, primary_key=True, autoincrement=True)
     
     # Contact
     business_name = db.Column(db.String(255), nullable=False, default='Lenny Media Kenya')
@@ -453,11 +452,11 @@ class BusinessInfo(db.Model):
     email_primary = db.Column(db.String(255), nullable=False)
     email_support = db.Column(db.String(255), nullable=True)
     
-    # Hours - Changed from JSONB to JSON
+    # Hours
     hours_of_operation = db.Column(JSON, nullable=False)
     # Example: {"monday": "8:00 AM - 6:00 PM", "tuesday": "8:00 AM - 6:00 PM", ...}
     
-    # Social Media - Changed from JSONB to JSON
+    # Social Media
     social_media = db.Column(JSON, nullable=True)
     # Example: {"instagram": "https://instagram.com/lennymedia", "facebook": "https://facebook.com/lennymedia"}
     
@@ -492,7 +491,7 @@ class BusinessInfo(db.Model):
 class ContactMessage(db.Model):
     __tablename__ = 'contact_messages'
 
-    id = db.Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = db.Column(Integer, primary_key=True, autoincrement=True)
     name = db.Column(db.String(255), nullable=False)
     email = db.Column(db.String(255), nullable=False)
     phone = db.Column(db.String(20), nullable=True)
@@ -517,14 +516,14 @@ class ContactMessage(db.Model):
 class EmailLog(db.Model):
     __tablename__ = 'email_logs'
 
-    id = db.Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = db.Column(Integer, primary_key=True, autoincrement=True)
     recipient_email = db.Column(db.String(255), nullable=False)
     subject = db.Column(db.String(255), nullable=True)
     template_name = db.Column(db.String(100), nullable=True)
     status = db.Column(db.Enum(EmailLogStatus), nullable=False, default=EmailLogStatus.PENDING)
-    user_id = db.Column(String(36), db.ForeignKey('users.id'), nullable=True)
-    related_booking_id = db.Column(String(36), db.ForeignKey('bookings.id'), nullable=True)
-    related_quote_id = db.Column(String(36), db.ForeignKey('quote_requests.id'), nullable=True)
+    user_id = db.Column(Integer, db.ForeignKey('users.id'), nullable=True)
+    related_booking_id = db.Column(Integer, db.ForeignKey('bookings.id'), nullable=True)
+    related_quote_id = db.Column(Integer, db.ForeignKey('quote_requests.id'), nullable=True)
     sent_at = db.Column(db.DateTime, nullable=True)
     error_message = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
