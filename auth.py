@@ -1,10 +1,11 @@
-from flask import Blueprint, jsonify, request, current_app
+from flask import Blueprint, jsonify, request, current_app, make_response
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt
 from werkzeug.security import generate_password_hash, check_password_hash
 from models import db, User, UserRole
 from datetime import timedelta
 from functools import wraps
 import logging
+import re
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -28,8 +29,76 @@ def role_required(required_role):
     return decorator
 
 def is_valid_email(email: str) -> bool:
-    """Validates email format"""
-    return '@' in email and '.' in email and len(email) > 5
+    """
+    Validates email format using RFC 5322 compliant regex pattern.
+    
+    Checks for:
+    - Valid local part (before @)
+    - Valid domain part (after @)
+    - Proper domain structure with TLD
+    - No invalid characters
+    - Reasonable length constraints
+    
+    Args:
+        email: Email address string to validate
+        
+    Returns:
+        bool: True if email is valid, False otherwise
+    """
+    if not email or not isinstance(email, str):
+        return False
+    
+    # Trim whitespace
+    email = email.strip()
+    
+    # Check length constraints (RFC 5321)
+    if len(email) > 254 or len(email) < 6:  # min: a@b.co
+        return False
+    
+    # RFC 5322 compliant email regex pattern
+    # This pattern checks for valid email structure
+    email_pattern = re.compile(
+        r'^(?:[a-zA-Z0-9!#$%&\'*+/=?^_`{|}~-]+(?:\.[a-zA-Z0-9!#$%&\'*+/=?^_`{|}~-]+)*'  # Local part
+        r'|"(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")'  # Quoted local part
+        r'@'  # @ symbol
+        r'(?:(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?'  # Domain
+        r'|\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\])$'  # IP address
+    )
+    
+    if not email_pattern.match(email):
+        return False
+    
+    # Additional validation checks
+    local_part, domain_part = email.rsplit('@', 1)
+    
+    # Check local part length (RFC 5321)
+    if len(local_part) > 64:
+        return False
+    
+    # Check domain part length and structure
+    if len(domain_part) > 253:
+        return False
+    
+    # Ensure domain has at least one dot (TLD requirement)
+    if '.' not in domain_part:
+        return False
+    
+    # Check for consecutive dots
+    if '..' in email:
+        return False
+    
+    # Check that domain doesn't start or end with a dot or hyphen
+    if domain_part.startswith('.') or domain_part.endswith('.'):
+        return False
+    if domain_part.startswith('-') or domain_part.endswith('-'):
+        return False
+    
+    # Validate TLD (top-level domain) - at least 2 characters
+    tld = domain_part.split('.')[-1]
+    if len(tld) < 2:
+        return False
+    
+    return True
 
 # Authentication routes
 @auth_bp.route('/login', methods=['POST'])
@@ -176,7 +245,7 @@ def check_admin():
 
 @auth_bp.route('/register-first-admin', methods=['POST'])
 def register_first_admin():
-    """Register the first admin user (only if no admin exists)"""
+    """Register the first admin user (only if no admin exists) and auto-login"""
     if User.query.filter_by(role=UserRole.ADMIN).first():
         return jsonify({"msg": "Admin already exists"}), 403
 
@@ -204,11 +273,44 @@ def register_first_admin():
     db.session.add(new_admin)
     db.session.commit()
 
-    return jsonify({
+    # Auto-login the admin
+    access_token = create_access_token(
+        identity=str(new_admin.id),
+        additional_claims={
+            "email": new_admin.email,
+            "role": str(new_admin.role.value)
+        },
+        expires_delta=timedelta(days=1)
+    )
+
+    response = jsonify({
         "msg": "First admin registered successfully",
         "admin_id": new_admin.id,
-        "email": new_admin.email
-    }), 201
+        "email": new_admin.email,
+        "user": {
+            "id": new_admin.id,
+            "email": new_admin.email,
+            "role": str(new_admin.role.value),
+            "full_name": new_admin.full_name,
+            "phone": new_admin.phone,
+            "avatar_url": new_admin.avatar_url,
+            "is_active": new_admin.is_active
+        }
+    })
+
+    # Set HTTP-only cookie with the access token
+    response.set_cookie(
+        'access_token',
+        access_token,
+        httponly=True,
+        secure=False,  # Set to True in production with HTTPS
+        samesite='Lax',
+        path='/',
+        max_age=24*60*60  # 24 hours
+    )
+
+    logger.info(f"Admin registered and auto-logged in: {new_admin.email}")
+    return response, 201
 
 @auth_bp.route('/users', methods=['GET'])
 @jwt_required()
@@ -241,4 +343,3 @@ def get_current_user():
         "avatar_url": user.avatar_url,
         "claims": claims
     }), 200
-
